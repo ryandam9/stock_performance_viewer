@@ -964,9 +964,19 @@
         // OR "one table with a symbol column".
         function buildTickerUniverse() {
             TICKERS = [];
+            const seen = new Set();
+
+            function add(tk) {
+                if (seen.has(tk.label)) return;
+                seen.add(tk.label);
+                TICKERS.push(tk);
+            }
+
             TABLES.forEach(t => {
                 const d = SCHEMA[t].detect;
-                if (!d.date) return;                        // not a time series
+                if (!d.date) return; // not a time series
+
+                // Case A: Table has multiple symbols in a column (e.g. "stocks" table with "ticker" col)
                 if (d.sym) {
                     let rows = [];
                     const selectCols = d.name ? q(d.sym) + ', MAX(' + q(d.name) + ')' : q(d.sym);
@@ -977,37 +987,32 @@
                         rows.forEach(r => {
                             const val = String(r[0]);
                             const nameVal = d.name && r[1] ? String(r[1]) : "";
-                            TICKERS.push({label: val, name: nameVal, table: t, symCol: d.sym, symVal: val, det: d});
+                            add({label: val, name: nameVal, table: t, symCol: d.sym, symVal: val, det: d});
                         });
                         return;
                     }
                 }
+
+                // Case B: Table is the ticker (e.g. "VAS" table)
                 let nameVal = "";
                 if (d.name) {
                     try {
                         const nameRows = run('SELECT ' + q(d.name) + ' FROM ' + q(t) + ' WHERE ' + q(d.name) + ' IS NOT NULL LIMIT 1').rows;
-                        if (nameRows.length && nameRows[0][0]) {
-                            nameVal = String(nameRows[0][0]);
-                        }
+                        if (nameRows.length && nameRows[0][0]) nameVal = String(nameRows[0][0]);
                     } catch (e) { }
                 }
-                TICKERS.push({label: t, name: nameVal, table: t, symCol: null, symVal: null, det: d});
+                add({label: t, name: nameVal, table: t, symCol: null, symVal: null, det: d});
             });
+
+            // Final fallback: if nothing detected as time-series, just use all tables
             if (!TICKERS.length) {
                 TABLES.forEach(t => {
-                    const d = SCHEMA[t].detect;
-                    let nameVal = "";
-                    if (d.name) {
-                        try {
-                            const nameRows = run('SELECT ' + q(d.name) + ' FROM ' + q(t) + ' WHERE ' + q(d.name) + ' IS NOT NULL LIMIT 1').rows;
-                            if (nameRows.length && nameRows[0][0]) {
-                                nameVal = String(nameRows[0][0]);
-                            }
-                        } catch (e) { }
-                    }
-                    TICKERS.push({label: t, name: nameVal, table: t, symCol: null, symVal: null, det: SCHEMA[t].detect});
+                    add({label: t, name: "", table: t, symCol: null, symVal: null, det: SCHEMA[t].detect});
                 });
             }
+
+            // Sort alphabetically by label
+            TICKERS.sort((a, b) => String(a.label).localeCompare(String(b.label), undefined, {numeric: true, sensitivity: 'base'}));
         }
 
         function selectTicker(i) {
