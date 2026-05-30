@@ -268,55 +268,80 @@
     }
 
     .schema {
-        max-height: calc(100vh - 220px);
-        overflow: auto
+        max-height: calc(100vh - 250px);
+        overflow: auto;
+        padding-right: 4px;
+    }
+
+    .schema::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .schema::-webkit-scrollbar-thumb {
+        background: var(--line);
+        border-radius: 10px;
     }
 
     .schema-card.hidden {
         display: none
     }
 
-    .show-sidebar {
+    .schema-search {
+        width: 100%;
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        color: var(--ink);
+        font-family: var(--mono);
         font-size: 11px;
-        padding: 6px 10px;
-        border-radius: 6px;
-        margin-bottom: 10px
+        padding: 8px 10px;
+        border-radius: 8px;
+        margin-bottom: 14px;
     }
 
-    .tbl {
-        margin-bottom: 12px
+    .schema-search:focus {
+        outline: none;
+        border-color: var(--accent-dim);
     }
 
-    .tbl .tname {
-        color: var(--accent);
-        font-size: 12.5px;
-        font-weight: 600;
-        cursor: pointer;
+    .tbl-item {
         display: flex;
-        justify-content: space-between
-    }
-
-    .tbl .tname:hover {
-        text-decoration: underline
-    }
-
-    .tbl .cols {
-        margin: 4px 0 0 0;
-        padding-left: 10px;
-        border-left: 1px solid var(--line)
-    }
-
-    .tbl .col {
-        font-size: 11px;
-        color: var(--mute);
-        display: flex;
+        align-items: center;
         justify-content: space-between;
-        gap: 8px;
-        padding: 1px 0
+        padding: 10px 12px;
+        border-radius: 10px;
+        margin-bottom: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
     }
 
-    .tbl .col .ty {
-        color: var(--faint)
+    .tbl-item:hover {
+        background: rgba(198, 244, 50, 0.04);
+        border-color: rgba(198, 244, 50, 0.15);
+    }
+
+    .tbl-item .name {
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--ink);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .tbl-item:hover .name {
+        color: var(--accent);
+    }
+
+    .tbl-item .count {
+        font-size: 10px;
+        color: var(--faint);
+        font-weight: 600;
+        background: var(--panel2);
+        padding: 2px 6px;
+        border-radius: 6px;
+        margin-left: 8px;
+        flex-shrink: 0;
     }
 
     .tabs {
@@ -740,6 +765,7 @@
             <div class="hdr">
                 <h2><span class="c">$</span> schema</h2><button id="hideSchema" title="Hide sidebar">✕</button>
             </div>
+            <input type="text" id="schemaSearch" class="schema-search" placeholder="Filter tables...">
             <div class="schema" id="schema"></div>
         </aside>
         <button class="show-sidebar hidden" id="showSchema">☰ Show schema</button>
@@ -889,19 +915,30 @@
             TABLES = run("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").rows.map(r => r[0]);
             SCHEMA = {};
             const host = $("#schema"); host.innerHTML = "";
+
             TABLES.forEach(t => {
                 const info = run('PRAGMA table_info(' + q(t) + ')').rows.map(r => ({cid: r[0], name: r[1], type: r[2]}));
                 let cnt = 0; try {cnt = run('SELECT COUNT(*) FROM ' + q(t)).rows[0][0];} catch (e) { }
                 SCHEMA[t] = {cols: info, count: cnt, detect: detect(info)};
-                const div = document.createElement("div"); div.className = "tbl";
-                div.innerHTML = '<div class="tname"><span>' + t + '</span><span style="color:var(--faint)">' + cnt + ' rows</span></div>' +
-                    '<div class="cols">' + info.map(c => '<div class="col"><span>' + c.name + '</span><span class="ty">' + (c.type || '') + '</span></div>').join("") + '</div>';
-                div.querySelector(".tname").onclick = () => {
+
+                const item = document.createElement("div");
+                item.className = "tbl-item";
+                item.dataset.name = t.toLowerCase();
+                item.innerHTML = '<span class="name">' + t + '</span><span class="count">' + cnt.toLocaleString() + '</span>';
+
+                item.onclick = () => {
                     const idx = TICKERS.findIndex(tk => tk.table === t);
                     if (idx >= 0) {selectTicker(idx); switchTab("explore");}
                 };
-                host.appendChild(div);
+                host.appendChild(item);
             });
+
+            $("#schemaSearch").oninput = (e) => {
+                const val = e.target.value.toLowerCase();
+                document.querySelectorAll(".tbl-item").forEach(el => {
+                    el.style.display = el.dataset.name.includes(val) ? "flex" : "none";
+                });
+            };
         }
 
         // ---- EXPLORE (ticker-centric, live updating) -------------------------------
