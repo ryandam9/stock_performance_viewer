@@ -976,21 +976,26 @@
         function selectTicker(i) {
             curIdx = i; $("#ex_ticker").value = String(i);
             const tk = TICKERS[i], names = SCHEMA[tk.table].cols.map(c => c.name), d = tk.det;
-            fillSel($("#ex_date"), names, d.date || names[0]);
-            fillSel($("#ex_val"), names, d.close || names[1] || names[0]);
+            const dateCol = d.date || names[0];
+            const valCol = d.close || names[1] || names[0];
+
+            fillSel($("#ex_date"), names, dateCol);
+            fillSel($("#ex_val"), names, valCol);
+
             const cb = $('#ex_type button[data-t="candle"]'), can = !!(d.open && d.high && d.low && d.close);
             cb.disabled = !can; cb.title = can ? "" : "No OHLC columns detected";
             if (!can && exType === "candle") {exType = "line"; syncType();}
             $("#ex_name").textContent = tk.name || "";
-            loadSeries(); renderExplore();
+            loadSeries(dateCol, valCol); renderExplore();
         }
 
-        function loadSeries() {
+        function loadSeries(dateOverride, valOverride) {
             const tk = TICKERS[curIdx], d = tk.det;
-            const dateCol = $("#ex_date").value || d.date;
+            const dateCol = dateOverride || $("#ex_date").value || d.date;
+            const valCol = valOverride || $("#ex_val").value || d.close;
             const cols = [
                 q(dateCol) + ' AS _dt',
-                ($("#ex_val").value ? q($("#ex_val").value) : 'NULL') + ' AS _val',
+                (valCol ? q(valCol) : 'NULL') + ' AS _val',
                 (d.open ? q(d.open) : 'NULL') + ' AS _o',
                 (d.high ? q(d.high) : 'NULL') + ' AS _h',
                 (d.low ? q(d.low) : 'NULL') + ' AS _l',
@@ -1006,12 +1011,15 @@
                         return {t, iso: isoOf(t), val: num(v[1]), o: num(v[2]), h: num(v[3]), l: num(v[4]), c: num(v[5]), v: num(v[6])};
                     })
                     .filter(Boolean).sort((a, b) => a.t - b.t);
-            } catch (e) {rows = [];}
+            } catch (e) {
+                console.error("loadSeries error:", e);
+                rows = [];
+            }
             curSeries = {tk, rows, hasOHLC: !!(d.open && d.high && d.low && d.close)};
         }
 
         function visibleRows() {
-            if (!curSeries || !curSeries.rows.length) return [];
+            if (!curSeries || !curSeries.rows || !curSeries.rows.length) return [];
             const rows = curSeries.rows;
             if (period === "CUSTOM") {
                 const f = parseDate($("#ex_from").value), t = parseDate($("#ex_to").value);
@@ -1032,7 +1040,14 @@
             const vis = visibleRows();
             updateHead(vis);
             const statEl = $("#ex_stats");
-            if (!vis.length) {Plotly.purge("chart"); statEl.innerHTML = '<span style="color:var(--down);font-size:12px">No data in this range.</span>'; return;}
+            const chartEl = $("#chart");
+
+            if (!vis.length) {
+                Plotly.purge(chartEl);
+                statEl.innerHTML = '<span style="color:var(--down);font-size:12px">No data in this range.</span>';
+                return;
+            }
+
             const x = vis.map(r => r.iso);
             const lay = baseLayout(curSeries.tk.label, exType === "candle");
             let traces;
@@ -1040,21 +1055,30 @@
                 traces = [{
                     type: "candlestick", x,
                     open: vis.map(r => r.o), high: vis.map(r => r.h), low: vis.map(r => r.l), close: vis.map(r => r.c),
-                    increasing: {line: {color: getCss("--up")}, fillcolor: "rgba(61,220,151,.5)"},
-                    decreasing: {line: {color: getCss("--down")}, fillcolor: "rgba(255,107,107,.5)"}
+                    increasing: {line: {color: getCss("--up", "#3ddc97")}, fillcolor: "rgba(61,220,151,.5)"},
+                    decreasing: {line: {color: getCss("--down", "#ff6b6b")}, fillcolor: "rgba(255,107,107,.5)"}
                 }];
             } else {
                 const ys = vis.map(r => r.val != null ? r.val : r.c);
                 const clean = ys.filter(n => n != null);
-                if (clean.length) {const lo = Math.min(...clean), hi = Math.max(...clean), pad = (hi - lo) * 0.08 || (hi * 0.02) || 1; lay.yaxis.range = [lo - pad, hi + pad];}
+                if (clean.length) {
+                    const lo = Math.min(...clean), hi = Math.max(...clean), pad = (hi - lo) * 0.08 || (hi * 0.02) || 1;
+                    lay.yaxis.range = [lo - pad, hi + pad];
+                }
                 traces = [{
                     type: "scatter", mode: "lines", x, y: ys, name: curSeries.tk.label,
-                    line: {color: getCss("--accent"), width: 1.9},
+                    line: {color: getCss("--accent", "#c6f432"), width: 1.9},
                     fill: exType === "area" ? "tozeroy" : "none", fillcolor: "rgba(198,244,50,.10)",
                     hovertemplate: "%{x}  ·  %{y}<extra></extra>"
                 }];
             }
-            Plotly.react("chart", traces, lay, {responsive: true, displaylogo: false, modeBarButtonsToRemove: ["lasso2d", "select2d", "autoScale2d"]});
+
+            try {
+                Plotly.react(chartEl, traces, lay, {responsive: true, displaylogo: false, modeBarButtonsToRemove: ["lasso2d", "select2d", "autoScale2d"]});
+            } catch (e) {
+                console.error("Plotly.react error:", e);
+                Plotly.newPlot(chartEl, traces, lay, {responsive: true, displaylogo: false});
+            }
             setStats(vis);
         }
 
@@ -1182,12 +1206,15 @@
         }
 
         // ---- chart styling ---------------------------------------------------------
-        function getCss(v) {return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+        function getCss(v, fallback) {
+            const val = getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+            return val || fallback;
+        }
         function baseLayout(title, isCandle) {
             return {
-                title: {text: title, font: {family: "Bricolage Grotesque, sans-serif", size: 17, color: getCss('--ink')}, x: 0, xanchor: "left"},
+                title: {text: title, font: {family: "Bricolage Grotesque, sans-serif", size: 17, color: getCss('--ink', '#e7efe9')}, x: 0, xanchor: "left"},
                 paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
-                font: {family: "IBM Plex Mono, monospace", size: 11, color: getCss('--mute')},
+                font: {family: "IBM Plex Mono, monospace", size: 11, color: getCss('--mute', '#7d8f87')},
                 margin: {l: 58, r: 18, t: 46, b: 40},
                 xaxis: {type: "date", gridcolor: "#18211d", zeroline: false, rangeslider: {visible: isCandle, bgcolor: "#0e1311", thickness: 0.06}},
                 yaxis: {gridcolor: "#18211d", zeroline: false},
@@ -1220,18 +1247,16 @@
                 if (!TABLES.length) {setStatus("Loaded, but found no tables in this database.", "err"); return;}
                 // wire explore (ticker universe spans the whole DB)
                 buildTickerUniverse();
-                console.log("=== DB Schema ===", JSON.parse(JSON.stringify(SCHEMA)));
-                console.log("=== TICKERS ===", TICKERS);
-                console.log("=== First table sample ===", TABLES.length ? run('SELECT * FROM ' + q(TABLES[0]) + ' LIMIT 3') : "no tables");
                 $("#ex_ticker").innerHTML = TICKERS.map((t, i) => {
                     const titleAttr = t.name ? ' title="' + String(t.name).replace(/"/g, '&quot;') + '"' : '';
                     return '<option value="' + i + '"' + titleAttr + '>' + String(t.label).replace(/</g, "&lt;") + '</option>';
                 }).join("");
+
+                app.style.display = "grid";
                 selectTicker(0);
                 buildCompareSources();
                 const kb = (buf.byteLength / 1024).toFixed(0);
                 setStatus("Loaded <b>" + TABLES.length + "</b> table" + (TABLES.length > 1 ? "s" : "") + " · <b>" + TICKERS.length + "</b> ticker" + (TICKERS.length > 1 ? "s" : "") + " · " + kb + " KB.", "ok");
-                app.style.display = "grid";
             } catch (e) {
                 const msg = e.message || String(e);
                 const cors = /Failed to fetch|NetworkError|CORS|Load failed/i.test(msg);
@@ -1312,3 +1337,6 @@
         boot();
     })();
 </script>
+</body>
+
+</html>
