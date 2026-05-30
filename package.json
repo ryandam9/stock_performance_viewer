@@ -1,0 +1,21 @@
+{
+    "name": "asx-etf-eod-explorer",
+    "version": "1.0.0",
+    "description": "100% client-side ASX ETF end-of-day data explorer (SQLite via WebAssembly + Plotly).",
+    "private": true,
+    "type": "commonjs",
+    "scripts": {
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.13.0",
+        "eslint": "^9.13.0",
+        "globals": "^15.11.0",
+        "prettier": "^3.3.3",
+        "vitest": "^2.1.4"
+    }
+}
