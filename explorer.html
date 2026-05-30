@@ -410,6 +410,182 @@
         min-height: 90px
     }
 
+    /* ── shadcn-style custom dropdown ── */
+    .cdd {
+        position: relative;
+        display: inline-block;
+        min-width: 170px;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        user-select: none
+    }
+
+    .cdd-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 10px;
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        color: var(--ink);
+        font-family: inherit;
+        font-size: inherit;
+        cursor: pointer;
+        transition: border-color .15s
+    }
+
+    .cdd-trigger:hover {
+        border-color: var(--faint)
+    }
+
+    .cdd-trigger:focus-visible {
+        outline: none;
+        border-color: var(--accent-dim);
+        box-shadow: 0 0 0 2px rgba(198, 244, 50, .15)
+    }
+
+    .cdd.cdd-open .cdd-trigger {
+        border-color: var(--accent-dim);
+        border-bottom-color: var(--panel2);
+        border-radius: 9px 9px 0 0
+    }
+
+    .cdd-value {
+        flex: 1;
+        text-align: left;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--ink)
+    }
+
+    .cdd-value.placeholder {
+        color: var(--faint)
+    }
+
+    .cdd-chevron {
+        flex: none;
+        width: 16px;
+        height: 16px;
+        color: var(--mute);
+        transition: transform .2s
+    }
+
+    .cdd.cdd-open .cdd-chevron {
+        transform: rotate(180deg)
+    }
+
+    .cdd-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        max-height: 260px;
+        overflow-y: auto;
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-top: none;
+        border-radius: 0 0 9px 9px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+        display: none;
+        padding: 4px
+    }
+
+    .cdd.cdd-open .cdd-menu {
+        display: block
+    }
+
+    .cdd-menu::-webkit-scrollbar {
+        width: 4px
+    }
+
+    .cdd-menu::-webkit-scrollbar-thumb {
+        background: var(--line);
+        border-radius: 10px
+    }
+
+    .cdd-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        color: var(--mute);
+        font-size: 12px;
+        transition: background .1s, color .1s
+    }
+
+    .cdd-option:hover {
+        background: rgba(198, 244, 50, .07);
+        color: var(--ink)
+    }
+
+    .cdd-option.selected {
+        color: var(--accent);
+        font-weight: 500
+    }
+
+    .cdd-option input[type="checkbox"] {
+        accent-color: var(--accent);
+        width: 14px;
+        height: 14px;
+        margin: 0;
+        flex: none;
+        pointer-events: none
+    }
+
+    .cdd-multi .cdd-option.selected {
+        color: var(--ink);
+        background: rgba(198, 244, 50, .06)
+    }
+
+    .cdd-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #0a0d0c;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1
+    }
+
+    .cdd-clear {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: transparent;
+        border: none;
+        color: var(--faint);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+        line-height: 1;
+        transition: color .15s, background .15s;
+        flex: none
+    }
+
+    .cdd-clear:hover {
+        color: var(--down);
+        background: rgba(255, 107, 107, .1)
+    }
+
+    .cdd-multi .cdd-trigger {
+        min-height: 37px
+    }
+
     .seg {
         display: inline-flex;
         border: 1px solid var(--line);
@@ -822,9 +998,26 @@
             <!-- COMPARE -->
             <section class="card tabpane hidden" data-pane="compare">
                 <div class="ctrls">
-                    <div class="field"><label>Source</label><select id="cmp_src"></select></div>
-                    <div class="field"><label>Series (multi-select)</label><select class="multi" id="cmp_series"
-                            multiple size="6"></select></div>
+                    <div class="field">
+                        <label>Source</label>
+                        <div class="cdd" id="cmp_src_wrap">
+                            <button class="cdd-trigger" type="button" aria-haspopup="listbox">
+                                <span class="cdd-value placeholder">Select source…</span>
+                                <svg class="cdd-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                            <div class="cdd-menu" role="listbox" id="cmp_src_menu"></div>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>Series</label>
+                        <div class="cdd cdd-multi" id="cmp_series_wrap">
+                            <button class="cdd-trigger" type="button" aria-haspopup="listbox">
+                                <span class="cdd-value placeholder">None selected</span>
+                                <svg class="cdd-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                            <div class="cdd-menu" role="listbox" id="cmp_series_menu" aria-multiselectable="true"></div>
+                        </div>
+                    </div>
                     <div class="field">
                         <label>Mode</label>
                         <label class="chk"><input type="checkbox" id="cmp_norm"> Rebase to 100</label>
@@ -832,8 +1025,9 @@
                     <button class="primary" id="cmp_plot">Overlay</button>
                 </div>
                 <div id="chartCompare"></div>
-                <div class="hint">Pick two or more series to compare closing-price performance. “Rebase to 100”
+                <div class="hint">Pick two or more series to compare closing-price performance. &ldquo;Rebase to 100&rdquo;
                     normalises each series to its first value — best for relative performance across ETFs.</div>
+                <div id="cmp_status" style="display:none;margin-top:8px;font-size:11px;color:var(--warn)"></div>
             </section>
 
             <!-- SQL -->
@@ -1175,31 +1369,136 @@
         }
 
         // ---- COMPARE ---------------------------------------------------------------
+        // ── custom dropdown (shadcn-style) factory ──
+        let _openCDD = null;
+        function createCDD(wrapId) {
+            const wrap = document.getElementById(wrapId);
+            const trigger = wrap.querySelector('.cdd-trigger');
+            const valEl = wrap.querySelector('.cdd-value');
+            const menu = wrap.querySelector('.cdd-menu');
+            const multiple = wrap.classList.contains('cdd-multi');
+            let items = [], sel = multiple ? [] : null, onChange = null;
+
+            function render() {
+                menu.innerHTML = items.map(o => {
+                    const isSel = multiple ? sel.includes(o.value) : sel === o.value;
+                    return multiple
+                        ? '<label class="cdd-option' + (isSel ? ' selected' : '') + '" data-value="' + o.value + '"><input type="checkbox" ' + (isSel ? 'checked' : '') + '>' + o.label + '</label>'
+                        : '<div class="cdd-option' + (isSel ? ' selected' : '') + '" data-value="' + o.value + '">' + o.label + '</div>';
+                }).join('');
+                syncLabel();
+            }
+
+            function syncLabel() {
+                if (multiple) {
+                    const n = sel.length;
+                    valEl.textContent = n ? n + ' selected' : 'None selected';
+                    valEl.classList.toggle('placeholder', !n);
+                } else {
+                    const found = items.find(x => x.value === sel);
+                    valEl.textContent = found ? found.label : 'Select source…';
+                    valEl.classList.toggle('placeholder', !found);
+                }
+            }
+
+            function close() { wrap.classList.remove('cdd-open'); if (_openCDD === wrap) _openCDD = null; }
+
+            function open() {
+                if (_openCDD && _openCDD !== wrap) _openCDD.classList.remove('cdd-open');
+                wrap.classList.add('cdd-open');
+                _openCDD = wrap;
+            }
+
+            function toggle() {
+                if (wrap.classList.contains('cdd-open')) close();
+                else open();
+            }
+
+            trigger.onclick = (e) => { e.stopPropagation(); toggle(); };
+            trigger.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+                if (e.key === 'Escape') close();
+            });
+
+            menu.onclick = (e) => {
+                const opt = e.target.closest('.cdd-option');
+                if (!opt) return;
+                const val = opt.dataset.value;
+                if (multiple) {
+                    const idx = sel.indexOf(val);
+                    if (idx >= 0) sel.splice(idx, 1); else sel.push(val);
+                    render();
+                    if (onChange) onChange(sel);
+                } else {
+                    sel = val;
+                    render();
+                    close();
+                    if (onChange) onChange(val);
+                }
+            };
+
+            document.addEventListener('click', (e) => {
+                if (_openCDD && !_openCDD.contains(e.target)) _openCDD.classList.remove('cdd-open');
+                if (_openCDD && !_openCDD.contains(e.target)) _openCDD = null;
+            }, true);
+
+            return {
+                setItems: function (opts) {
+                    items = opts || [];
+                    if (multiple) sel = [];
+                    else sel = items.length ? items[0].value : null;
+                    render();
+                },
+                getVal: function () { return sel; },
+                setVal: function (v) { sel = multiple ? (v || []) : v; render(); if (onChange) onChange(sel); },
+                onChange: function (cb) { onChange = cb; }
+            };
+        }
+
         // A "source" is either a table that has a symbol column (series = symbols),
         // or the synthetic "tables" source (series = each OHLCV-style table).
+        let cmpSrc, cmpSeries;
+
         function buildCompareSources() {
-            const src = $("#cmp_src"); const opts = [];
-            TABLES.forEach(t => {if (SCHEMA[t].detect.sym) opts.push("symbols in " + t);});
-            if (TABLES.length > 1) opts.push("tables (each table = one series)");
-            src.innerHTML = opts.map(o => '<option>' + o + '</option>').join("");
-            src.onchange = fillCompareSeries; fillCompareSeries();
+            const opts = [];
+            TABLES.forEach(t => { if (SCHEMA[t].detect.sym) opts.push({ value: "symbols in " + t, label: "symbols in " + t }); });
+            if (TABLES.length > 1) opts.push({ value: "tables", label: "tables (each table = one series)" });
+
+            cmpSrc = createCDD('cmp_src_wrap');
+            cmpSrc.setItems(opts);
+
+            cmpSeries = createCDD('cmp_series_wrap');
+
+            cmpSrc.onChange(function (v) { fillCompareSeries(v); });
+            if (opts.length) fillCompareSeries(opts[0].value);
         }
-        function fillCompareSeries() {
-            const v = $("#cmp_src").value, sel = $("#cmp_series");
-            if (v && v.startsWith("symbols in ")) {
-                const t = v.slice("symbols in ".length), col = SCHEMA[t].detect.sym;
-                const vals = run('SELECT DISTINCT ' + q(col) + ' FROM ' + q(t) + ' ORDER BY 1').rows.map(r => String(r[0]));
-                sel.innerHTML = vals.map(x => '<option>' + x + '</option>').join("");
+
+        function fillCompareSeries(srcVal) {
+            if (!srcVal) { cmpSeries.setItems([]); return; }
+            let vals;
+            if (srcVal.startsWith("symbols in ")) {
+                const t = srcVal.slice("symbols in ".length), col = SCHEMA[t].detect.sym;
+                vals = run('SELECT DISTINCT ' + q(col) + ' FROM ' + q(t) + ' ORDER BY 1').rows.map(r => ({ value: String(r[0]), label: String(r[0]) }));
             } else {
-                sel.innerHTML = TABLES.map(t => '<option>' + t + '</option>').join("");
+                vals = TABLES.map(t => ({ value: t, label: t }));
             }
+            cmpSeries.setItems(vals);
+            $("#cmp_status").style.display = "none";
         }
+
         function plotCompare() {
-            const v = $("#cmp_src").value, norm = $("#cmp_norm").checked;
-            const chosen = Array.from($("#cmp_series").selectedOptions).map(o => o.value);
-            if (chosen.length < 1) {alert("Select at least one series."); return;}
+            const v = cmpSrc.getVal();
+            if (!v) { alert("Select a source first."); return; }
+            const norm = $("#cmp_norm").checked;
+            const chosen = cmpSeries.getVal();
+            if (!chosen || !chosen.length) {
+                $("#cmp_status").style.display = "block";
+                $("#cmp_status").textContent = "Select at least one series to plot.";
+                return;
+            }
+            $("#cmp_status").style.display = "none";
             const traces = [];
-            chosen.forEach(name => {
+            chosen.forEach(function (name) {
                 let rows = [], label = name;
                 if (v.startsWith("symbols in ")) {
                     const t = v.slice("symbols in ".length), d = SCHEMA[t].detect;
@@ -1209,13 +1508,13 @@
                     if (!d.date || !d.close) return;
                     rows = run('SELECT ' + q(d.date) + ',' + q(d.close) + ' FROM ' + q(name) + ' ORDER BY ' + q(d.date)).rows;
                 }
-                let ys = rows.map(r => +r[1]);
-                if (norm && ys.length && ys[0]) ys = ys.map(y => y / ys[0] * 100);
-                traces.push({type: "scatter", mode: "lines", name: label, x: rows.map(r => r[0]), y: ys, line: {width: 1.5}});
+                let ys = rows.map(function (r) { return +r[1]; });
+                if (norm && ys.length && ys[0]) ys = ys.map(function (y) { return y / ys[0] * 100; });
+                traces.push({ type: "scatter", mode: "lines", name: label, x: rows.map(function (r) { return r[0]; }), y: ys, line: { width: 1.5 } });
             });
             const lay = baseLayout(norm ? "Relative performance (rebased to 100)" : "Closing price overlay", false);
             lay.showlegend = true; lay.colorway = ['#c6f432', '#3ddc97', '#ff6b6b', '#ffce5c', '#7aa2ff', '#ff9ad5', '#5ad1d1', '#c89bff'];
-            Plotly.newPlot("chartCompare", traces, lay, {responsive: true, displaylogo: false});
+            Plotly.newPlot("chartCompare", traces, lay, { responsive: true, displaylogo: false });
         }
 
         // ---- SQL console -----------------------------------------------------------
