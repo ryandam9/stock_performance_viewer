@@ -458,6 +458,15 @@
         cursor: pointer
     }
 
+    .tickerName {
+        font-family: var(--disp);
+        font-size: 21px;
+        color: #ffffff;
+        font-weight: 700;
+        margin: 0 auto;
+        text-align: center;
+    }
+
     .tickerSel:focus {
         outline: none;
         border-color: var(--accent-dim)
@@ -746,6 +755,7 @@
             <section class="card tabpane" data-pane="explore">
                 <div class="tickerHead">
                     <select id="ex_ticker" class="tickerSel"></select>
+                    <div id="ex_name" class="tickerName"></div>
                     <div class="px"><span id="ex_last">—</span><span id="ex_chg" class="chg"></span></div>
                 </div>
 
@@ -861,7 +871,8 @@
                 low: pick(cols, [/^low$/i, /\blow\b/i, /^l$/i]),
                 close: pick(cols, [/adj.?close/i, /^close$/i, /\bclose\b/i, /^price$/i, /\blast\b/i, /^c$/i]),
                 vol: pick(cols, [/volume/i, /^vol$/i, /qty/i]),
-                sym: pick(cols, [/symbol/i, /ticker/i, /^code$/i, /\basx\b/i, /security/i, /instrument/i])
+                sym: pick(cols, [/symbol/i, /ticker/i, /^code$/i, /\basx\b/i, /security/i, /instrument/i]),
+                name: pick(cols, [/^name$/i, /^desc$/i, /description/i, /company/i, /title/i, /fullname/i])
             };
         }
         const q = id => '"' + String(id).replace(/"/g, '""') + '"';   // quote identifier
@@ -920,13 +931,46 @@
                 const d = SCHEMA[t].detect;
                 if (!d.date) return;                        // not a time series
                 if (d.sym) {
-                    let vals = [];
-                    try {vals = run('SELECT DISTINCT ' + q(d.sym) + ' FROM ' + q(t) + ' WHERE ' + q(d.sym) + ' IS NOT NULL ORDER BY 1').rows.map(r => String(r[0]));} catch (e) { }
-                    if (vals.length > 1) {vals.forEach(v => TICKERS.push({label: v, table: t, symCol: d.sym, symVal: v, det: d})); return;}
+                    let rows = [];
+                    const selectCols = d.name ? q(d.sym) + ', MAX(' + q(d.name) + ')' : q(d.sym);
+                    try {
+                        rows = run('SELECT ' + selectCols + ' FROM ' + q(t) + ' WHERE ' + q(d.sym) + ' IS NOT NULL GROUP BY ' + q(d.sym) + ' ORDER BY 1').rows;
+                    } catch (e) { }
+                    if (rows.length > 1) {
+                        rows.forEach(r => {
+                            const val = String(r[0]);
+                            const nameVal = d.name && r[1] ? String(r[1]) : "";
+                            TICKERS.push({label: val, name: nameVal, table: t, symCol: d.sym, symVal: val, det: d});
+                        });
+                        return;
+                    }
                 }
-                TICKERS.push({label: t, table: t, symCol: null, symVal: null, det: d});
+                let nameVal = "";
+                if (d.name) {
+                    try {
+                        const nameRows = run('SELECT ' + q(d.name) + ' FROM ' + q(t) + ' WHERE ' + q(d.name) + ' IS NOT NULL LIMIT 1').rows;
+                        if (nameRows.length && nameRows[0][0]) {
+                            nameVal = String(nameRows[0][0]);
+                        }
+                    } catch (e) { }
+                }
+                TICKERS.push({label: t, name: nameVal, table: t, symCol: null, symVal: null, det: d});
             });
-            if (!TICKERS.length) TABLES.forEach(t => TICKERS.push({label: t, table: t, symCol: null, symVal: null, det: SCHEMA[t].detect}));
+            if (!TICKERS.length) {
+                TABLES.forEach(t => {
+                    const d = SCHEMA[t].detect;
+                    let nameVal = "";
+                    if (d.name) {
+                        try {
+                            const nameRows = run('SELECT ' + q(d.name) + ' FROM ' + q(t) + ' WHERE ' + q(d.name) + ' IS NOT NULL LIMIT 1').rows;
+                            if (nameRows.length && nameRows[0][0]) {
+                                nameVal = String(nameRows[0][0]);
+                            }
+                        } catch (e) { }
+                    }
+                    TICKERS.push({label: t, name: nameVal, table: t, symCol: null, symVal: null, det: SCHEMA[t].detect});
+                });
+            }
         }
 
         function selectTicker(i) {
@@ -937,6 +981,7 @@
             const cb = $('#ex_type button[data-t="candle"]'), can = !!(d.open && d.high && d.low && d.close);
             cb.disabled = !can; cb.title = can ? "" : "No OHLC columns detected";
             if (!can && exType === "candle") {exType = "line"; syncType();}
+            $("#ex_name").textContent = tk.name || "";
             loadSeries(); renderExplore();
         }
 
@@ -1178,7 +1223,10 @@
                 console.log("=== DB Schema ===", JSON.parse(JSON.stringify(SCHEMA)));
                 console.log("=== TICKERS ===", TICKERS);
                 console.log("=== First table sample ===", TABLES.length ? run('SELECT * FROM ' + q(TABLES[0]) + ' LIMIT 3') : "no tables");
-                $("#ex_ticker").innerHTML = TICKERS.map((t, i) => '<option value="' + i + '">' + String(t.label).replace(/</g, "&lt;") + '</option>').join("");
+                $("#ex_ticker").innerHTML = TICKERS.map((t, i) => {
+                    const titleAttr = t.name ? ' title="' + String(t.name).replace(/"/g, '&quot;') + '"' : '';
+                    return '<option value="' + i + '"' + titleAttr + '>' + String(t.label).replace(/</g, "&lt;") + '</option>';
+                }).join("");
                 selectTicker(0);
                 buildCompareSources();
                 const kb = (buf.byteLength / 1024).toFixed(0);
