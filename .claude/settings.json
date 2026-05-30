@@ -1,0 +1,14 @@
+{
+    "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "cd \"$CLAUDE_PROJECT_DIR\" && npm ci --silent 2>/dev/null || npm install --silent 2>/dev/null || true"
+                    }
+                ]
+            }
+        ]
+    }
+}
